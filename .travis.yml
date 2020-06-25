@@ -6,6 +6,7 @@ stages:
   - "unit tests"
   - "end-to-end tests"
   - "build image"
+  - "release"
 
 # Define yaml anchor to be reused across testing matrix
 _end_to_end_script: &end_to_end_script
@@ -40,6 +41,17 @@ jobs:
     - env: KUBE_VERSION=v1.16.0 ISTIO_VERSION=1.4.6
       <<: *end_to_end_script
     - stage: "build image"
-      if: (type = push) AND (branch = master OR branch =~ /^v[0-9]+\.[0-9]+$/)
+      if: (type = push) AND (branch = master OR branch =~ /^v[0-9]+\.[0-9]+/)
       script:
         - test/build-image.sh
+    - stage: "release"
+      script: echo $TRAVIS_TAG
+      if: (type = push) AND (branch =~ /^v[0-9]+\.[0-9]+/)
+      deploy:
+        provider: releases
+        api_key: $GITHUB_TOKEN
+        file: install/kubernetes/iter8-trend.yaml
+        draft: true
+        skip_cleanup: true
+        on:
+          tags: true
