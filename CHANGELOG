@@ -1,0 +1,7 @@
+v0.2.0
+- Added end-to-end tests
+- Added auto Istio and Kubernetes version detection
+==========================
+v0.1.0
+- Added Grafana dashboard
+==========================
