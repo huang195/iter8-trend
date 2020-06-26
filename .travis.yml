@@ -53,7 +53,7 @@ jobs:
         provider: releases
         api_key: $GITHUB_TOKEN
         file: install/kubernetes/iter8-trend.yaml
-        body: $CHANGELOG
+        body: this is a test
         name: $TRAVIS_BRANCH
         draft: true
         skip_cleanup: true
