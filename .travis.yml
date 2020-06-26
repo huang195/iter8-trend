@@ -48,14 +48,12 @@ jobs:
       script: skip
       if: (type = push) AND (branch =~ /^v[0-9]+\.[0-9]+/)
       before_deploy:
-        - sudo apt-get install -y jshon
-        - export CHANGELOG=$(jshon -s "$(make ver=${TRAVIS_BRANCH} changelog)")
-        - echo "$CHANGELOG"
+        - export CHANGELOG=$(make ver=${TRAVIS_BRANCH} changelog)
       deploy:
         provider: releases
         api_key: ${GITHUB_TOKEN}
         file: install/kubernetes/iter8-trend.yaml
-        body: ${CHANGELOG}
+        body: "this is a test"
         name: ${TRAVIS_BRANCH}
         draft: true
         skip_cleanup: true
