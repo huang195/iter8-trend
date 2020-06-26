@@ -48,12 +48,12 @@ jobs:
       script: skip
       if: (type = push) AND (branch =~ /^v[0-9]+\.[0-9]+/)
       before_deploy:
-        - export CHANGELOG=$(make ver=${TRAVIS_BRANCH} changelog)
+        - make ver=${TRAVIS_BRANCH} changelog > release.note
       deploy:
         provider: releases
         api_key: ${GITHUB_TOKEN}
         file: install/kubernetes/iter8-trend.yaml
-        body: "this is a test"
+        release_notes_file: release.note
         name: ${TRAVIS_BRANCH}
         draft: true
         skip_cleanup: true
