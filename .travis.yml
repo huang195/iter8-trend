@@ -51,6 +51,8 @@ jobs:
         - make ver=${TRAVIS_BRANCH} changelog > release.note
       deploy:
         provider: releases
+        # use developer preview version as 'body' doesn't work with multiple lines
+        edge: true
         api_key: ${GITHUB_TOKEN}
         file: install/kubernetes/iter8-trend.yaml
         release_notes_file: release.note
