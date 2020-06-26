@@ -48,6 +48,8 @@ jobs:
       script: skip
       if: (type = push) AND (branch =~ /^v[0-9]+\.[0-9]+/)
       before_deploy:
+        ls -al
+        cat CHANGELOG
         export CHANGELOG=`make ver=$TRAVIS_BRANCH changelog`
       deploy:
         provider: releases
