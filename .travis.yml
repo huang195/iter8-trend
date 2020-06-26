@@ -57,7 +57,7 @@ jobs:
         file: install/kubernetes/iter8-trend.yaml
         release_notes_file: release.note
         name: ${TRAVIS_BRANCH}
-        draft: true
+        draft: false
         skip_cleanup: true
         on:
           tags: true
