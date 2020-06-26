@@ -45,12 +45,15 @@ jobs:
       script:
         - test/build-image.sh
     - stage: "release"
-      script: echo $TRAVIS_TAG
+      script: skip
       if: (type = push) AND (branch =~ /^v[0-9]+\.[0-9]+/)
+      before_deploy:
+        export CHANGELOG=`make ver=$TRAVIS_BRANCH changelog`
       deploy:
         provider: releases
         api_key: $GITHUB_TOKEN
         file: install/kubernetes/iter8-trend.yaml
+        body: $CHANGELOG
         draft: true
         skip_cleanup: true
         on:
