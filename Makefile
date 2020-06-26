@@ -12,7 +12,7 @@ build-default:
 
 .PHONY: changelog
 changelog:
-	@sed -n '/$(ver)/,/=====/p' ./CHANGELOG
+	@sed -n '/$(ver)/,/=====/p' CHANGELOG
 
 .PHONY: test
 test:
