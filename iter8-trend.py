@@ -27,7 +27,10 @@ logger = logging.getLogger(__name__)
 
 # Represents an Iter8 Experiment Custom Resource
 class Experiment:
-    def __init__(self, e):
+    def __init__(self, e=None):
+        if e == None:
+            return
+
         if 'metadata' in e and 'namespace' in e['metadata']:
             self.namespace = e['metadata']['namespace']
         if 'metadata' in e and 'name' in e['metadata']:
@@ -170,6 +173,75 @@ class Iter8Watcher:
         # All experiments in the cluster
         self.experiments = dict()
 
+    # At the start, we read existing iter8_trend data from Prometheus so
+    # we don't end up re-calculating metric data for existing experiments
+    def load_data_from_prometheus(self):
+        logger.info("Loading data from Prometheus...")
+        data = self.query_prometheus('iter8_trend')
+        for res in data:
+            if 'metric' in res and 'value' in res:
+                m = res['metric']
+                v = res['value']
+                if 'namespace' in m and 'name' in m:
+                    exp = None
+                    key = m['namespace'] + ':' + m['name']
+                    if key in self.experiments:
+                        exp = self.experiments[key]
+                    else:
+                        exp = Experiment()
+                        exp.candidate_data = {}
+                        exp.namespace = m['namespace']
+                        exp.name = m['name']
+
+                        if 'baseline' in m:
+                            exp.baseline = m['baseline']
+                        else:
+                            exp.baseline = 'unknown'
+
+                        if 'candidate' in m:
+                            exp.candidate = m['candidate']
+                        else:
+                            exp.candidate= 'unknown'
+
+                        if 'phase' in m:
+                            exp.phase= m['phase']
+                        else:
+                            exp.phase= 'unknown'
+
+                        if 'start_time' in m:
+                            exp.start_time = m['start_time']
+                        else:
+                            exp.start_time= 'unknown'
+
+                        if 'app' in m:
+                            exp.candidate_app = m['app']
+                        else:
+                            exp.app = 'unknown'
+
+                        if 'version' in m:
+                            exp.candidate_version = m['version']
+                        else:
+                            exp.version = 'unknown'
+
+                        if 'service_name' in m:
+                            exp.service_name = m['service_name']
+                        else:
+                            exp.service_name = 'unknown'
+
+                        if 'time' in m:
+                            exp.end_time = m['time']
+                        else:
+                            exp.end_time = 'unknown'
+
+                        self.experiments[key] = exp
+                    if 'metric' in m:
+                        exp.candidate_data[m['metric']] = float(v[1])
+                    else:
+                        exp.candidate_data[m['metric']] = float(-1)
+
+        for exp in self.experiments:
+            print(self.experiments[exp])
+
     # At the start, we read all the Experiment Custom Resources in
     # the cluster and query Prometheus for their summary metric data
     def load_exp_from_cluster(self):
@@ -182,6 +254,8 @@ class Iter8Watcher:
             results = json.loads(json.dumps(response, ensure_ascii=False))
             for e in results['items']:
                 exp = Experiment(e)
+                if exp.namespace + ':' + exp.name in self.experiments:
+                    continue
                 if exp.is_completed_and_successful:
                     self.experiments[exp.namespace + ':' + exp.name] = exp
                     for metric in exp.query_template:
@@ -215,6 +289,17 @@ class Iter8Watcher:
                             exp.candidate_data[metric] = v[1]
                             exp.candidate_app = m['destination_app']
                             exp.candidate_version = m['destination_version']
+            else:
+                logger.warning(f"Prometheus query returned no result ({params}, {response})")
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"Problem querying Prometheus ({self.prometheus_url}): {e}")
+
+    def query_prometheus(self, query):
+        params = {'query': query}
+        try:
+            response = requests.get(self.prometheus_url, params=params).json()
+            if 'data' in response and 'result' in response['data']:
+                return response['data']['result']
             else:
                 logger.warning(f"Prometheus query returned no result ({params}, {response})")
         except requests.exceptions.RequestException as e:
@@ -283,12 +368,26 @@ class Iter8Watcher:
             time.sleep(1)
 
     def collect(self):
-        g = GaugeMetricFamily('iter8_trend', '', labels=['namespace', 'name', 'service_name', 'time', 'app', 'version', 'metric'])
+        g = GaugeMetricFamily('iter8_trend', '', labels=['namespace',
+                                                         'name',
+                                                         'service_name',
+                                                         'baseline',
+                                                         'candidate',
+                                                         'phase',
+                                                         'start_time',
+                                                         'time',
+                                                         'app',
+                                                         'version',
+                                                         'metric'])
         for exp in self.experiments:
             for metric in self.experiments[exp].candidate_data:
                 g.add_metric([self.experiments[exp].namespace,
                               self.experiments[exp].name,
                               self.experiments[exp].service_name,
+                              self.experiments[exp].baseline,
+                              self.experiments[exp].candidate,
+                              self.experiments[exp].phase,
+                              self.experiments[exp].start_time,
                               self.experiments[exp].end_time,
                               self.experiments[exp].candidate_app,
                               self.experiments[exp].candidate_version,
@@ -336,9 +435,10 @@ class Iter8Watcher:
         # Handles ctrl-c signal
         signal(SIGINT, sighandler)
 
-        threads = list()
+        self.load_data_from_prometheus()
         self.load_exp_from_cluster()
 
+        threads = list()
         t0 = threading.Thread(target=self.start_healthcheck, daemon=True, args=())
         t0.start()
         threads.append(t0)
